@@ -6,17 +6,16 @@ local Window = Rayfield:CreateWindow({
     ConfigurationSaving = { Enabled = false }
 })
 
--- 1. MODUL BETÖLTÉSE (Csak egyszer, pcall-al)
+-- MODUL BETÖLTÉSE (Javított linkkel)
 local success, StreetLife = pcall(function()
     return loadstring(game:HttpGet("https://raw.githubusercontent.com/walterblack-lab/mopp/main/modules/StreetLife.lua"))()
 end)
 
 if not success then
-    warn("Hiba a StreetLife modul betoltesekor!")
-    -- Itt akár egy Notify-t is feldobhatsz a felhasználónak
+    warn("Hiba: A modul nem talalhato a GitHubon!")
+    Rayfield:Notify({Title = "Hiba", Content = "A StreetLife modul nem toltheto be!"})
 end
 
--- 2. UI ELEMEK LÉTREHOZÁSA
 local FarmTab = Window:CreateTab("Auto Farm")
 local SettingsTab = Window:CreateTab("Settings")
 
@@ -30,17 +29,16 @@ FarmTab:CreateToggle({
             else
                 StreetLife.StopFarm()
             end
+        else
+            warn("A modul nincs betoltve, a gomb nem mukodik!")
         end
     end,
 })
 
--- 3. UNLOAD GOMB
 SettingsTab:CreateButton({
     Name = "Destroy Script (Unload)",
     Callback = function()
-        if success and StreetLife then
-            StreetLife.StopFarm()
-        end
+        if success and StreetLife then StreetLife.StopFarm() end
         Rayfield:Destroy()
     end,
 })
