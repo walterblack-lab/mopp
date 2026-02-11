@@ -1,0 +1,63 @@
+-- modules/StreetLife.lua
+local Module = {}
+local LP = game.Players.LocalPlayer
+Module.Active = false
+
+-- Belső funkciók (Séta, Mop váró)
+local function walkTo(target)
+    if not LP.Character or not LP.Character:FindFirstChild("Humanoid") then return end
+    LP.Character.Humanoid:MoveTo(target.Position)
+    local arrived = false
+    local con; con = LP.Character.Humanoid.MoveToFinished:Connect(function()
+        arrived = true
+        con:Disconnect()
+    end)
+    local start = tick()
+    repeat task.wait(0.1) until arrived or (tick() - start) > 10 or not Module.Active
+end
+
+function Module.StartFarm()
+    Module.Active = true
+    task.spawn(function()
+        while Module.Active do
+            local closest = nil
+            local dist = math.huge
+            -- Keresés a számozott tócsák között
+            for _, v in pairs(workspace:GetDescendants()) do
+                if tonumber(v.Name) and v:FindFirstChildOfClass("ProximityPrompt") then
+                    local char = LP.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") then
+                        local d = (v:GetPivot().Position - char.HumanoidRootPart.Position).Magnitude
+                        if d < dist then dist = d; closest = v end
+                    end
+                end
+            end
+
+            if closest and Module.Active then
+                walkTo(closest)
+                if not Module.Active then break end
+                
+                local prompt = closest:FindFirstChildOfClass("ProximityPrompt")
+                if prompt then
+                    fireproximityprompt(prompt)
+                    -- Mop szinkronizáció
+                    local timeout = 0
+                    repeat task.wait(0.1); timeout = timeout + 0.1 
+                    until (LP.Character and LP.Character:FindFirstChild("Mop")) or timeout > 3 or not Module.Active
+                    
+                    if LP.Character and LP.Character:FindFirstChild("Mop") then
+                        repeat task.wait(0.1) until not LP.Character:FindFirstChild("Mop") or not Module.Active
+                    end
+                end
+            end
+            task.wait(0.5)
+        end
+    end)
+end
+
+function Module.StopFarm()
+    Module.Active = false
+    print("Street Life Module leállítva.")
+end
+
+return Module
