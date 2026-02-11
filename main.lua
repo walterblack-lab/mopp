@@ -6,32 +6,41 @@ local Window = Rayfield:CreateWindow({
     ConfigurationSaving = { Enabled = false }
 })
 
--- Modul betöltése (GitHub linkkel helyettesítsd majd)
-local StreetLife = loadstring(game:HttpGet("https://raw.githubusercontent.com/FELHASZNALONEV/MatrixHub/main/modules/StreetLife.lua"))()
+-- 1. MODUL BETÖLTÉSE (Csak egyszer, pcall-al)
+local success, StreetLife = pcall(function()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/walterblack-lab/mopp/main/modules/StreetLife.lua"))()
+end)
 
+if not success then
+    warn("Hiba a StreetLife modul betoltesekor!")
+    -- Itt akár egy Notify-t is feldobhatsz a felhasználónak
+end
+
+-- 2. UI ELEMEK LÉTREHOZÁSA
 local FarmTab = Window:CreateTab("Auto Farm")
 local SettingsTab = Window:CreateTab("Settings")
 
--- FARM TOGGLE
 FarmTab:CreateToggle({
     Name = "Auto Mop Puddles",
     CurrentValue = false,
     Callback = function(Value)
-        if Value then
-            StreetLife.StartFarm()
-        else
-            StreetLife.StopFarm()
+        if success and StreetLife then
+            if Value then
+                StreetLife.StartFarm()
+            else
+                StreetLife.StopFarm()
+            end
         end
     end,
 })
 
--- UNLOAD GOMB
+-- 3. UNLOAD GOMB
 SettingsTab:CreateButton({
     Name = "Destroy Script (Unload)",
     Callback = function()
-        StreetLife.StopFarm() -- Minden ciklust leállítunk
-        _G.AutoClean = false  -- Globális változók törlése
-        Rayfield:Destroy()    -- A teljes UI törlése
-        print("Matrix Hub sikeresen eltávolítva.")
+        if success and StreetLife then
+            StreetLife.StopFarm()
+        end
+        Rayfield:Destroy()
     end,
 })
