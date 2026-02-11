@@ -3,17 +3,49 @@ local Module = {}
 local LP = game.Players.LocalPlayer
 Module.Active = false
 
--- Belső funkciók (Séta, Mop váró)
+-- DISZKRÉT SÉTA (Ha a MoveTo nem indulna, ez kényszeríti)
 local function walkTo(target)
-    if not LP.Character or not LP.Character:FindFirstChild("Humanoid") then return end
-    LP.Character.Humanoid:MoveTo(target.Position)
-    local arrived = false
-    local con; con = LP.Character.Humanoid.MoveToFinished:Connect(function()
-        arrived = true
-        con:Disconnect()
-    end)
-    local start = tick()
-    repeat task.wait(0.1) until arrived or (tick() - start) > 10 or not Module.Active
+    local char = LP.Character
+    local hum = char and char:FindFirstChild("Humanoid")
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    
+    if hum and root then
+        local targetPos = target:GetPivot().Position
+        hum:MoveTo(targetPos)
+        
+        -- Időtúllépés és távolság ellenőrzése
+        local start = tick()
+        repeat 
+            task.wait(0.1) 
+        until (root.Position - targetPos).Magnitude < 4 or (tick() - start) > 8 or not Module.Active
+    end
+end
+
+-- MOP KEZELÉSE (3. slot és animáció megvárása)
+local function handleMop()
+    local char = LP.Character
+    local backpack = LP:FindFirstChild("Backpack")
+    
+    -- 1. Megvárjuk, amíg a játék tényleg odaadja a Mop-ot (2mp nyomás után jön meg)
+    local mop = nil
+    local timeout = 0
+    repeat
+        task.wait(0.2)
+        mop = char:FindFirstChild("Mop") or (backpack and backpack:FindFirstChild("Mop"))
+        timeout = timeout + 0.2
+    until mop or timeout > 5 or not Module.Active
+    
+    if mop and Module.Active then
+        -- 2. Kézbemérés (Equip), ha a hátizsákban van
+        if mop.Parent == backpack then
+            char.Humanoid:EquipTool(mop)
+        end
+        
+        -- 3. Megvárjuk az animáció végét (amíg a Mop eltűnik)
+        print("Takarítás folyamatban...")
+        repeat task.wait(0.1) until not char:FindFirstChild("Mop") or not Module.Active
+        print("Pocsolya feltakarítva!")
+    end
 end
 
 function Module.StartFarm()
@@ -22,7 +54,8 @@ function Module.StartFarm()
         while Module.Active do
             local closest = nil
             local dist = math.huge
-            -- Keresés a számozott tócsák között
+            
+            -- Keresés
             for _, v in pairs(workspace:GetDescendants()) do
                 if tonumber(v.Name) and v:FindFirstChildOfClass("ProximityPrompt") then
                     local char = LP.Character
@@ -34,30 +67,27 @@ function Module.StartFarm()
             end
 
             if closest and Module.Active then
+                print("Séta a következőhöz: " .. closest.Name)
                 walkTo(closest)
-                if not Module.Active then break end
                 
                 local prompt = closest:FindFirstChildOfClass("ProximityPrompt")
-                if prompt then
+                if prompt and Module.Active then
+                    -- 2 másodperces nyomvatartás szimulálása
+                    -- A fireproximityprompt() a legtöbb executornál azonnal triggel, 
+                    -- de itt várunk utána, hogy a szerver is feldolgozza
                     fireproximityprompt(prompt)
-                    -- Mop szinkronizáció
-                    local timeout = 0
-                    repeat task.wait(0.1); timeout = timeout + 0.1 
-                    until (LP.Character and LP.Character:FindFirstChild("Mop")) or timeout > 3 or not Module.Active
+                    task.wait(2.1) 
                     
-                    if LP.Character and LP.Character:FindFirstChild("Mop") then
-                        repeat task.wait(0.1) until not LP.Character:FindFirstChild("Mop") or not Module.Active
-                    end
+                    handleMop()
                 end
             end
-            task.wait(0.5)
+            task.wait(1)
         end
     end)
 end
 
 function Module.StopFarm()
     Module.Active = false
-    print("Street Life Module leállítva.")
 end
 
 return Module
